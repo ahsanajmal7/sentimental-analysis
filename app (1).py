@@ -1,44 +1,30 @@
+# pip install streamlit transformers torch pillow
+
 import streamlit as st
-from pytube import YouTube
-from pydub import AudioSegment
-import os
-import tempfile
+from transformers import BlipProcessor, BlipForConditionalGeneration
+from PIL import Image
 
-st.title("🎵 YouTube Audio Downloader")
+# Title for the Streamlit app
+st.title("🖼️ Image Description Generator")
 
-# Input: YouTube video link
-link = st.text_input("Enter YouTube Video URL")
+# Upload image
+uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
-if st.button("Download Audio"):
-    if link:
-        try:
-            st.info("Downloading...")
-            yt = YouTube(link)
-            video = yt.streams.filter(only_audio=True).first()
+if uploaded_image is not None:
+    image = Image.open(uploaded_image)
 
-            if video is None:
-                st.error("No audio stream found for this video.")
-            else:
-                # Create temp download location
-                with tempfile.TemporaryDirectory() as tmp_dir:
-                    audio_path = video.download(output_path=tmp_dir)
+    # Display the image
+    st.image(image, caption="Uploaded Image", use_column_width=True)
 
-                    # Convert to mp3
-                    mp3_path = os.path.join(tmp_dir, yt.title[:50].replace(" ", "_") + ".mp3")
-                    sound = AudioSegment.from_file(audio_path)
-                    sound.export(mp3_path, format="mp3")
+    # Initialize the BLIP processor and model
+    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 
-                    # Provide download button
-                    with open(mp3_path, "rb") as f:
-                        st.success("✅ Download Complete!")
-                        st.download_button(
-                            label="Download MP3",
-                            data=f,
-                            file_name=os.path.basename(mp3_path),
-                            mime="audio/mpeg"
-                        )
+    # Preprocess the image and generate caption
+    inputs = processor(images=image, return_tensors="pt")
+    out = model.generate(**inputs)
+    caption = processor.decode(out[0], skip_special_tokens=True)
 
-        except Exception as e:
-            st.error(f"Error: {e}")
-    else:
-        st.warning("Please enter a valid YouTube URL.")
+    # Display the generated description
+    st.subheader("Image Description:")
+    st.write(caption)
