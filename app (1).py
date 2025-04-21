@@ -1,28 +1,43 @@
-# pip install transformers
-# pip install streamlit
-# pip install torch
+# pip install streamlit pytube pydub
 
 import streamlit as st
-from transformers import pipeline
+from pytube import YouTube
+from pydub import AudioSegment
+import os
+import tempfile
 
-# Title for the app
-st.title('Sentiment Analysis Bot')
+st.title("🎵 YouTube Audio Downloader")
 
-# Load sentiment-analysis pipeline
-sentiment_analyzer = pipeline("sentiment-analysis")
+# Input: YouTube video link
+link = st.text_input("Enter YouTube Video URL")
 
-# Text input for the user
-user_text = st.text_input("Enter a sentence to analyze its sentiment")
+if st.button("Download Audio"):
+    if link:
+        try:
+            st.info("Downloading...")
+            yt = YouTube(link)
+            video = yt.streams.filter(only_audio=True).first()
 
-# Button to trigger sentiment analysis
-if st.button("Analyze Sentiment"):
-    # Get sentiment
-    result = sentiment_analyzer(user_text)[0]
+            # Create temp download location
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                audio_path = video.download(output_path=tmp_dir)
+                
+                # Convert to mp3
+                mp3_path = os.path.join(tmp_dir, yt.title[:50].replace(" ", "_") + ".mp3")
+                sound = AudioSegment.from_file(audio_path)
+                sound.export(mp3_path, format="mp3")
 
-    # Display the result
-    label = result['label']
-    score = round(result['score'], 4)
-    
-    st.subheader("Sentiment Result:")
-    st.write(f"Sentiment: **{label}**")
-    st.write(f"Confidence Score: **{score}**")
+                # Provide download button
+                with open(mp3_path, "rb") as f:
+                    st.success("✅ Download Complete!")
+                    st.download_button(
+                        label="Download MP3",
+                        data=f,
+                        file_name=os.path.basename(mp3_path),
+                        mime="audio/mpeg"
+                    )
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+    else:
+        st.warning("Please enter a valid YouTube URL.")
